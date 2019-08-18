@@ -5,6 +5,10 @@ workflows:
   build:
     jobs:
       - validate-installer-signature
+      - rvm-test-fast-linux
+      - rvm-test-rvm1-linux
+      - rvm-test-long-named-linux
+      - rvm-test-long-truffleruby-linux
 
 jobs:
   validate-installer-signature:
@@ -24,3 +28,44 @@ jobs:
           name: Verify signature
           command: |
             gpg2 --verify binscripts/rvm-installer.asc binscripts/rvm-installer
+
+  default: &default-run-test
+    docker:
+      - image: circleci/ruby:2.4 # the primary container, where your job's commands are run
+    steps:
+      - checkout # check out the code in the project directory
+      - run:
+          name: Configure
+          command: |
+            echo rvm_show_log_lines_on_error=all >> ~/.rvmrc
+      - run:
+          name: Install
+          command: |
+            ./install
+            gem install tf -v '>=0.4.1'
+      - run:
+          name: Test RVM
+          command: |
+            export TERM=ansi
+            source "$HOME/.rvm/scripts/rvm"
+            tf --text $TEST_FILES
+
+  rvm-test-fast-linux:
+    environment:
+      TEST_FILES: "rvm-test/fast/*"
+    <<: *default-run-test
+
+  rvm-test-rvm1-linux:
+    environment:
+      TEST_FILES: "rvm-test-rvm1/*"
+    <<: *default-run-test
+
+  rvm-test-long-named-linux:
+    environment:
+      TEST_FILES: "rvm-test/long/named_ruby_and_gemsets_comment_test.sh"
+    <<: *default-run-test
+
+  rvm-test-long-truffleruby-linux:
+    environment:
+      TEST_FILES: "rvm-test/long/truffleruby_comment_test.sh"
+    <<: *default-run-test
